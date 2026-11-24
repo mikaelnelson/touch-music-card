@@ -341,6 +341,7 @@ categories:
 | `icon` | music note | Icon shown when an item has no image. |
 | `limit` | all | Maximum number of items. |
 | `play` | `true` | Tapping an item plays it straight away. Set `false` to open it instead. |
+| `enqueue` | `replace` | How a tapped item is queued: `replace` (new queue), `play` (play now, keep the rest of the queue), `next` (play after the current track) or `add` (append). Use `play` for a "now playing queue" list. |
 
 ### Tile
 

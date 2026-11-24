@@ -767,6 +767,7 @@ class MusicAssistantTouchCard extends HTMLElement {
       icon: b.icon || '',
       play: b.play !== false,
       radio_mode: b.radio_mode === true,
+      enqueue: b.enqueue || '',
     }));
   }
 
@@ -1172,7 +1173,7 @@ class MusicAssistantTouchCard extends HTMLElement {
     this._syncSpeler();
   }
 
-  async _speel(uri, radio, el, naam, laad) {
+  async _speel(uri, radio, el, naam, laad, enqueue) {
     if (!uri) return;
     if (el) el.classList.add('bezig');
     this._opt = { state: 'playing', tot: Date.now() + 8000 };
@@ -1181,7 +1182,7 @@ class MusicAssistantTouchCard extends HTMLElement {
       await this._voorbereiden();
       await this._startVolume();
       await this._call('music_assistant', 'play_media',
-        { media_id: uri, enqueue: 'replace', radio_mode: !!radio },
+        { media_id: uri, enqueue: enqueue || 'replace', radio_mode: !!radio },
         { entity_id: this._speler() });
     } catch (e) {
       this._laadKlaar();
@@ -1455,7 +1456,7 @@ class MusicAssistantTouchCard extends HTMLElement {
         const cat = this._cats[this._cat] || {};
         const laad = [tl.loading_indicator, cat.loading_indicator, this._cfg.loading_indicator]
           .find((v) => typeof v === 'boolean');
-        this._speel(tl.uri, tl.radio_mode, t, tl.name, laad);
+        this._speel(tl.uri, tl.radio_mode, t, tl.name, laad, tl.enqueue);
       }
       else this._open({ name: tl.name, uri: tl.uri }, t, 'home');
     }
