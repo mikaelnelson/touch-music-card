@@ -575,14 +575,14 @@ ha-icon { pointer-events:none; }
            text-overflow:ellipsis; font-size:13.5px; }
 .rij .tx b { font-weight:600; }
 .rij .tx span { color:var(--flauw); }
-.rij.kaart { grid-template-columns:84px minmax(0,1fr) auto; height:90px; }
-.rij.kaart img, .rij.kaart .ic { width:66px; height:66px; border-radius:8px; object-fit:cover; justify-self:center; }
+.rij.kaart { grid-template-columns:120px minmax(0,1fr) auto; height:135px; }
+.rij.kaart img, .rij.kaart .ic { width:99px; height:99px; border-radius:10px; object-fit:cover; justify-self:center; }
 .rij.kaart .ic { background:var(--ov1); display:flex; align-items:center; justify-content:center; }
-.rij.kaart .ic ha-icon { --mdc-icon-size:32px; color:var(--acc); opacity:.85; }
-.rij.kaart .tx { display:flex; flex-direction:column; justify-content:center; padding-left:4px; font-size:16px; }
+.rij.kaart .ic ha-icon { --mdc-icon-size:48px; color:var(--acc); opacity:.85; }
+.rij.kaart .tx { display:flex; flex-direction:column; justify-content:center; padding-left:4px; font-size:22px; }
 .rij.kaart .tx b, .rij.kaart .tx span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.rij.kaart .tx span { font-size:13px; }
-.rij.kaart .du { font-size:13px; padding:0 14px; }
+.rij.kaart .tx span { font-size:18px; }
+.rij.kaart .du { font-size:18px; padding:0 18px; }
 .rij .du { font-size:11.5px; color:var(--flauw); padding:0 8px 0 8px; font-variant-numeric:tabular-nums; }
 
 /* zoekregel rechts */
