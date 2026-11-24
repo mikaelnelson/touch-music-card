@@ -150,6 +150,11 @@ ha-icon { pointer-events:none; }
                background:var(--ov1); display:flex; align-items:center; justify-content:center;
                flex:0 0 auto; }
 .np .leegart ha-icon { --mdc-icon-size:46px; color:var(--flauw); }
+.np .leegart.laadt { background:var(--ov1); }
+.np .leegart.laadt::after { content:''; position:absolute; width:46px; height:46px; border-radius:50%;
+  border:4px solid var(--ov2); border-top-color:var(--acc); animation:draai .9s linear infinite; }
+.np .leegart.laadt ha-icon { display:none; }
+@keyframes draai { to { transform:rotate(360deg); } }
 .np .tx { position:relative; width:100%; padding:14px 2px 0; }
 .np .t { font-size:16px; font-weight:600; letter-spacing:-.2px;
          white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -1145,10 +1150,33 @@ class MusicAssistantTouchCard extends HTMLElement {
     if (el) el.classList.remove('bezig');
   }
 
-  async _speel(uri, radio, el) {
+  // Show a spinner in the player until the stream really plays. 'naam' is what
+  // the user tapped, so the panel can say what it is waiting for.
+  _laadStart(naam) {
+    const s = this._st(this._actief());
+    const a = (s && s.attributes) || {};
+    const nu = Date.now();
+    this._laadt = {
+      naam: naam || '', vorig: a.media_content_id || '', vanaf: nu, tot: nu + 45000,
+      speelde: !!s && s.state === 'playing',
+    };
+    clearTimeout(this._laadTimer);
+    this._laadTimer = setTimeout(() => this._syncSpeler(), 45500);
+    this._syncSpeler();
+  }
+
+  _laadKlaar() {
+    if (!this._laadt) return;
+    this._laadt = null;
+    clearTimeout(this._laadTimer);
+    this._syncSpeler();
+  }
+
+  async _speel(uri, radio, el, naam) {
     if (!uri) return;
     if (el) el.classList.add('bezig');
     this._opt = { state: 'playing', tot: Date.now() + 8000 };
+    this._laadStart(naam);
     try {
       await this._voorbereiden();
       await this._startVolume();
@@ -1156,6 +1184,7 @@ class MusicAssistantTouchCard extends HTMLElement {
         { media_id: uri, enqueue: 'replace', radio_mode: !!radio },
         { entity_id: this._speler() });
     } catch (e) {
+      this._laadKlaar();
       this._fout(e);
     }
     if (el) el.classList.remove('bezig');
@@ -1172,6 +1201,7 @@ class MusicAssistantTouchCard extends HTMLElement {
     const speler = this._speler();
     if (el) el.classList.add('bezig');
     this._opt = { state: 'playing', tot: Date.now() + 8000 };
+    this._laadStart('');
     try {
       await this._voorbereiden();
       await this._startVolume();
@@ -1420,7 +1450,7 @@ class MusicAssistantTouchCard extends HTMLElement {
       const tl = this._tegelsVan(this._cats[this._cat])[i];
       if (!tl) return;
       const direct = tl.play === true || this._cfg.tile_action === 'play';
-      if (direct) this._speel(tl.uri, tl.radio_mode, t);
+      if (direct) this._speel(tl.uri, tl.radio_mode, t, tl.name);
       else this._open({ name: tl.name, uri: tl.uri }, t, 'home');
     }
     else if (a === 'res') {
@@ -1852,25 +1882,43 @@ class MusicAssistantTouchCard extends HTMLElement {
     this._toonState = toon;
     const speelt = toon === 'playing';
 
+    // Loading: from the tap until the player really plays something new (or
+    // gives up). Without this the panel looks idle for the seconds a stream
+    // takes to open.
+    let laadt = false;
+    if (this._laadt) {
+      const L = this._laadt;
+      const nu = Date.now();
+      const st = s ? s.state : '';
+      if (nu > L.tot) this._laadt = null;
+      else if (st === 'playing' && ((a.media_content_id || '') !== L.vorig || !L.speelde
+        || nu - L.vanaf > 6000)) this._laadt = null;
+      else if (nu - L.vanaf > 8000 && ['idle', 'off', 'paused', 'standby'].includes(st)) this._laadt = null;
+      laadt = !!this._laadt;
+    }
+
     // Alleen hertekenen als er iets veranderd is - anders bouwt de kaart het
     // hoesje bij elke statuswijziging in huis opnieuw op en wordt hij traag.
-    const sig = [ent, eigen, toon, titel, artiest, a.media_content_id,
+    const sig = [laadt ? 1 : 0, ent, eigen, toon, titel, artiest, a.media_content_id,
       pic.split('&cache=')[0], a.shuffle, a.repeat, a.media_duration].join('|');
     if (sig === this._npSig) { this._toonVoortgang(); return; }
     this._npSig = sig;
     // Speelt het ergens anders dan op de gekozen zone? Laat zien waar.
     const elders = (ent && ent !== eigen && s && SPEELT.includes(s.state))
       ? `<div class="op">${t.playingOn} ${esc(a.friendly_name || ent)}</div>` : '';
-    const duur = parseInt(a.media_duration, 10) || 0;
+    const duur = laadt ? 0 : (parseInt(a.media_duration, 10) || 0);
+    const kop = laadt ? (this._laadt.naam || t.starting) : titel;
+    const onder = laadt ? (this._laadt.naam ? esc(t.starting) : '')
+      : (nietMA ? esc(artiest) : [a.media_artist, a.media_album_name].filter(Boolean)
+        .map((x, i) => (i ? '<span class="sep"> · </span>' : '') + `<span class="d${i}">${esc(x)}</span>`).join(''));
     np.innerHTML = `
-      ${pic && !nietMA ? `<div class="glow" style="background-image:url('${esc(pic)}')"></div>` : ''}
-      ${pic && !nietMA ? `<img class="art" src="${esc(pic)}">`
-            : `<div class="leegart">${svg('muziek')}</div>`}
+      ${pic && !nietMA && !laadt ? `<div class="glow" style="background-image:url('${esc(pic)}')"></div>` : ''}
+      ${pic && !nietMA && !laadt ? `<img class="art" src="${esc(pic)}">`
+            : `<div class="leegart${laadt ? ' laadt' : ''}">${svg('muziek')}</div>`}
       <div class="tx">
-        <div class="t">${esc(titel)}</div>
-        <div class="a">${nietMA ? esc(artiest) : [a.media_artist, a.media_album_name].filter(Boolean)
-          .map((x, i) => (i ? '<span class="sep"> · </span>' : '') + `<span class="d${i}">${esc(x)}</span>`).join('')}</div>
-        ${elders}
+        <div class="t">${esc(kop)}</div>
+        <div class="a">${onder}</div>
+        ${laadt ? '' : elders}
       </div>
       ${duur ? `<div class="voort">
         <div class="vbaan"><div class="vfill" id="vfill"></div></div>
