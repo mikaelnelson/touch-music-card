@@ -335,6 +335,7 @@ categories:
 | `meta_key` | `meta` | Field shown on the right (list view), such as a date. |
 | `uri_key` | `uri` | Field with the Music Assistant media id. Items without one are skipped. |
 | `image_key` | `image` | Field with a cover image URL (optional). |
+| `image_from` | — | A Music Assistant media type such as `podcast`. Items without an image borrow the cover of the library entry whose name equals the item's second line (an episode gets its show's cover). |
 | `icon` | music note | Icon shown when an item has no image. |
 | `limit` | all | Maximum number of items. |
 | `play` | `true` | Tapping an item plays it straight away. Set `false` to open it instead. |

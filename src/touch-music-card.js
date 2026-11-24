@@ -686,6 +686,9 @@ class MusicAssistantTouchCard extends HTMLElement {
     for (const cat of this._cats) {
       if (cat.source) {
         if (!cat.source.entity) taken.push(this._bronHaal(cat.source));
+        else if (cat.source.image_from) {
+          taken.push(this._bronHaal({ media_type: cat.source.image_from, limit: BIB_MAX }));
+        }
         continue;
       }
       for (const t of cat.tiles || []) {
@@ -738,12 +741,24 @@ class MusicAssistantTouchCard extends HTMLElement {
     const uk = sleutel('uri_key', 'uri');
     const ik = sleutel('image_key', 'image');
     const max = b.limit == null ? lijst.length : b.limit;
+    // image_from: a Music Assistant media type (say 'podcast'). Items with no
+    // image of their own borrow the cover of the library entry whose name is
+    // the item's second line, e.g. an episode takes its show's cover.
+    const norm = (x) => String(x || '').trim().toLowerCase();
+    let dek = null;
+    if (b.image_from) {
+      const c = this._bron[this._bronSleutel({ media_type: b.image_from, limit: BIB_MAX })];
+      if (c) {
+        dek = {};
+        for (const m of c.items) if (m.image) dek[norm(m.name)] = m.image;
+      }
+    }
     return lijst.filter((it) => it && it[uk]).slice(0, max).map((it) => ({
       name: it[nk] == null ? '' : String(it[nk]),
       subtitle: it[sk] == null ? '' : String(it[sk]),
       meta: it[mk] == null ? '' : String(it[mk]),
       uri: it[uk],
-      image: it[ik] || '',
+      image: it[ik] || (dek && dek[norm(it[sk])]) || '',
       icon: b.icon || '',
       play: b.play !== false,
       radio_mode: b.radio_mode === true,
@@ -2295,6 +2310,7 @@ class MusicAssistantTouchCardEditor extends HTMLElement {
               { name: 'meta_key', selector: { text: {} } },
               { name: 'uri_key', selector: { text: {} } },
             ] },
+            { name: 'image_from', selector: { text: {} } },
             { name: '', type: 'grid', schema: [
               { name: 'count', selector: { number: { min: 1, max: 100, step: 1, mode: 'box' } } },
               { name: 'play', selector: { boolean: {} } },
@@ -2303,12 +2319,12 @@ class MusicAssistantTouchCardEditor extends HTMLElement {
           {
             feed_entity: br.entity || '', attribute: br.attribute || '',
             name_key: br.name_key || '', subtitle_key: br.subtitle_key || '',
-            meta_key: br.meta_key || '', uri_key: br.uri_key || '',
+            meta_key: br.meta_key || '', uri_key: br.uri_key || '', image_from: br.image_from || '',
             count: br.limit == null ? 20 : br.limit, play: br.play !== false,
           },
           (v) => {
             const bron = { entity: v.feed_entity || '' };
-            ['attribute', 'name_key', 'subtitle_key', 'meta_key', 'uri_key'].forEach((k) => {
+            ['attribute', 'name_key', 'subtitle_key', 'meta_key', 'uri_key', 'image_from'].forEach((k) => {
               if (v[k]) bron[k] = v[k];
             });
             if (v.count) bron.limit = v.count;

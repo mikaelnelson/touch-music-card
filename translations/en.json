@@ -100,6 +100,7 @@
     "subtitle_key": "Second line field",
     "meta_key": "Right-hand field",
     "uri_key": "Media id field",
+    "image_from": "Borrow covers from this library type (optional, e.g. podcast)",
     "orderDefault": "Library order",
     "orderRecent": "Recently played",
     "orderNew": "Recently added",
