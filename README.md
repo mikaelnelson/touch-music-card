@@ -225,6 +225,7 @@ Prefer `library://` ids where you can. Those are Music Assistant's own library n
 | `limit` | `24` | Search results per type. |
 | `search_types` | all four | Which of track, album, artist, playlist can be searched. |
 | `view` | `tiles` | How categories are shown by default: `tiles` or `list`. A category's own `view` wins. |
+| `loading_indicator` | `true` | Show a spinner in the player while a tapped tile starts. A category's or tile's own setting wins. |
 | `tile_action` | `open` | `open` shows a tile's tracks, `play` starts it straight away. |
 | `keyboard` | `true` | The on-screen keyboard. Set `false` on a phone or PC to use a normal text field. |
 | `keyboard_layout` | `qwerty` | Letter layout of the on-screen keyboard: `qwerty`, `azerty`, `nb` (Norwegian, with Æ Ø Å) or `abc` (alphabetical). |
@@ -296,6 +297,7 @@ If Music Assistant can also reach the speaker with one of its own providers (Chr
 | `name` | — | The heading above the tiles. |
 | `tiles` | — | The tiles in this category, written by you. |
 | `source` | — | Let Music Assistant, or an entity's attribute, fill it instead. Replaces `tiles`. |
+| `loading_indicator` | card's setting | `false` hides the player spinner for tiles in this category, handy for content that starts instantly. |
 | `view` | card's `view` | `tiles` (cover grid) or `list` (one row per item: image or icon, title, optional second line, optional note on the right). Works for hand-written, Music Assistant and entity categories alike. |
 
 ### Source
@@ -349,6 +351,7 @@ categories:
 | `image` | fetched | A cover image URL. Leave it out and the card uses whatever cover Music Assistant has for this `uri` right now; set it to pin one particular image. If neither exists, the tile shows its icon. |
 | `icon` | — | One of the card's built-in icons, or an `mdi:` name. |
 | `play` | `false` | Always play this tile straight away, whatever `tile_action` says. |
+| `loading_indicator` | category's setting | Override the player spinner for this one tile. |
 | `radio_mode` | `false` | Start it in Music Assistant's radio mode, which keeps picking similar tracks. |
 
 ### Navigation button

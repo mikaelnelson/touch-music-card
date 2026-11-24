@@ -92,6 +92,7 @@
     "sourceFeed": "A list from an entity attribute",
     "feedTiles": "list from an entity",
     "view": "Show as",
+    "loading_indicator": "Show loading spinner in the player",
     "viewDefault": "Card default (tiles)",
     "viewTiles": "Tiles",
     "viewList": "List",

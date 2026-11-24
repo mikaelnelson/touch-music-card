@@ -179,6 +179,7 @@ const TAAL = {
       "sourceFeed": "A list from an entity attribute",
       "feedTiles": "list from an entity",
       "view": "Show as",
+      "loading_indicator": "Show loading spinner in the player",
       "viewDefault": "Card default (tiles)",
       "viewTiles": "Tiles",
       "viewList": "List",
@@ -294,6 +295,7 @@ const TAAL = {
       "sourceFeed": "A list from an entity attribute",
       "feedTiles": "list from an entity",
       "view": "Show as",
+      "loading_indicator": "Show loading spinner in the player",
       "viewDefault": "Card default (tiles)",
       "viewTiles": "Tiles",
       "viewList": "List",
@@ -409,6 +411,7 @@ const TAAL = {
       "sourceFeed": "A list from an entity attribute",
       "feedTiles": "list from an entity",
       "view": "Show as",
+      "loading_indicator": "Show loading spinner in the player",
       "viewDefault": "Card default (tiles)",
       "viewTiles": "Tiles",
       "viewList": "List",
@@ -1521,11 +1524,11 @@ class MusicAssistantTouchCard extends HTMLElement {
     this._syncSpeler();
   }
 
-  async _speel(uri, radio, el, naam) {
+  async _speel(uri, radio, el, naam, laad) {
     if (!uri) return;
     if (el) el.classList.add('bezig');
     this._opt = { state: 'playing', tot: Date.now() + 8000 };
-    this._laadStart(naam);
+    if (laad !== false) this._laadStart(naam);
     try {
       await this._voorbereiden();
       await this._startVolume();
@@ -1799,7 +1802,13 @@ class MusicAssistantTouchCard extends HTMLElement {
       const tl = this._tegelsVan(this._cats[this._cat])[i];
       if (!tl) return;
       const direct = tl.play === true || this._cfg.tile_action === 'play';
-      if (direct) this._speel(tl.uri, tl.radio_mode, t, tl.name);
+      if (direct) {
+        // loading_indicator: a tile's own setting wins, then its category's, then the card's.
+        const cat = this._cats[this._cat] || {};
+        const laad = [tl.loading_indicator, cat.loading_indicator, this._cfg.loading_indicator]
+          .find((v) => typeof v === 'boolean');
+        this._speel(tl.uri, tl.radio_mode, t, tl.name, laad);
+      }
       else this._open({ name: tl.name, uri: tl.uri }, t, 'home');
     }
     else if (a === 'res') {
@@ -2670,12 +2679,15 @@ class MusicAssistantTouchCardEditor extends HTMLElement {
             { value: 'tiles', label: ed.viewTiles },
             { value: 'list', label: ed.viewList },
           ] } } },
+          { name: 'loading_indicator', selector: { boolean: {} } },
         ],
-        { name: cat.name || '', vullen: feed ? 'feed' : (auto ? 'auto' : 'hand'), view: cat.view || '' },
+        { name: cat.name || '', vullen: feed ? 'feed' : (auto ? 'auto' : 'hand'), view: cat.view || '',
+          loading_indicator: cat.loading_indicator !== false },
         (v) => {
           const lijst = (this._cfg.categories || []).slice();
           const nw = Object.assign({}, lijst[ci], { name: v.name });
           if (v.view) nw.view = v.view; else delete nw.view;
+          if (v.loading_indicator === false) nw.loading_indicator = false; else delete nw.loading_indicator;
           const nu = v.vullen || 'hand';
           const was = feed ? 'feed' : (auto ? 'auto' : 'hand');
           if (nu !== was) {
