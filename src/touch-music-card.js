@@ -229,6 +229,14 @@ ha-icon { pointer-events:none; }
            text-overflow:ellipsis; font-size:13.5px; }
 .rij .tx b { font-weight:600; }
 .rij .tx span { color:var(--flauw); }
+.rij.kaart { grid-template-columns:56px minmax(0,1fr) auto; height:60px; }
+.rij.kaart img, .rij.kaart .ic { width:44px; height:44px; border-radius:6px; object-fit:cover; justify-self:center; }
+.rij.kaart .ic { background:var(--ov1); display:flex; align-items:center; justify-content:center; }
+.rij.kaart .ic ha-icon { --mdc-icon-size:24px; color:var(--acc); opacity:.85; }
+.rij.kaart .tx { display:flex; flex-direction:column; justify-content:center; padding-left:4px; font-size:14.5px; }
+.rij.kaart .tx b, .rij.kaart .tx span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rij.kaart .tx span { font-size:12px; }
+.rij.kaart .du { font-size:12px; padding:0 12px; }
 .rij .du { font-size:11.5px; color:var(--flauw); padding:0 8px 0 8px; font-variant-numeric:tabular-nums; }
 
 /* zoekregel rechts */
@@ -676,7 +684,10 @@ class MusicAssistantTouchCard extends HTMLElement {
     const soorten = new Set();
     const taken = [];
     for (const cat of this._cats) {
-      if (cat.source) { taken.push(this._bronHaal(cat.source)); continue; }
+      if (cat.source) {
+        if (!cat.source.entity) taken.push(this._bronHaal(cat.source));
+        continue;
+      }
       for (const t of cat.tiles || []) {
         // A pinned image or a chosen icon needs nothing fetched.
         if (t.image || t.icon || this._beeld[t.uri]) continue;
@@ -698,6 +709,7 @@ class MusicAssistantTouchCard extends HTMLElement {
   _tegelsVan(cat) {
     if (!cat) return [];
     if (!cat.source) return cat.tiles || [];
+    if (cat.source.entity) return this._feedItems(cat);
     const c = this._bron[this._bronSleutel(cat.source)];
     if (!c) return [];
     return c.items.map((it) => ({
@@ -707,6 +719,41 @@ class MusicAssistantTouchCard extends HTMLElement {
       play: cat.source.play === true,
       radio_mode: cat.source.radio_mode === true,
     }));
+  }
+
+  // A category can also read a list from an attribute of any entity: a template
+  // or REST sensor that holds, say, the newest podcast episodes. Each item is a
+  // dict; name_key/subtitle_key/meta_key/uri_key/image_key say which field is
+  // what. Nothing is fetched: the list is already in Home Assistant's state, so
+  // no token or URL ever has to appear in the card config.
+  _feedItems(cat) {
+    const b = cat.source;
+    const st = this._hass && this._hass.states[b.entity];
+    const lijst = st && st.attributes[b.attribute || 'items'];
+    if (!Array.isArray(lijst)) return [];
+    const sleutel = (k, d) => b[k] || d;
+    const nk = sleutel('name_key', 'name');
+    const sk = sleutel('subtitle_key', 'subtitle');
+    const mk = sleutel('meta_key', 'meta');
+    const uk = sleutel('uri_key', 'uri');
+    const ik = sleutel('image_key', 'image');
+    const max = b.limit == null ? lijst.length : b.limit;
+    return lijst.filter((it) => it && it[uk]).slice(0, max).map((it) => ({
+      name: it[nk] == null ? '' : String(it[nk]),
+      subtitle: it[sk] == null ? '' : String(it[sk]),
+      meta: it[mk] == null ? '' : String(it[mk]),
+      uri: it[uk],
+      image: it[ik] || '',
+      icon: b.icon || '',
+      play: b.play !== false,
+      radio_mode: b.radio_mode === true,
+    }));
+  }
+
+  // 'view' is per category, with the card-level 'view' as the default for all.
+  _weergave(cat) {
+    const v = (cat && cat.view) || (this._cfg && this._cfg.view);
+    return v === 'list' ? 'list' : 'tiles';
   }
 
   // Configuration wins, then whatever Music Assistant has now, then the icon.
@@ -733,6 +780,19 @@ class MusicAssistantTouchCard extends HTMLElement {
     if (eerste || !this.shadowRoot.firstChild) this._bouw();
     this._pasThemaToe();
     this._syncSpeler();
+    this._feedVernieuw();
+  }
+
+  // Redraw the visible category when the list behind a feed category changed.
+  // Compared by content, so an unrelated state update never resets the scroll.
+  _feedVernieuw() {
+    const cat = this._cats && this._cats[this._cat];
+    if (!cat || !cat.source || !cat.source.entity || this._mode !== 'home') return;
+    const sig = JSON.stringify(this._feedItems(cat));
+    if (sig === this._feedSig) return;
+    const eerst = this._feedSig === undefined;
+    this._feedSig = sig;
+    if (!eerst && this.shadowRoot.firstChild) this._tekenRechts();
   }
 
   // Measure the background the theme gives the card and switch the overlay colours
@@ -1519,19 +1579,29 @@ class MusicAssistantTouchCard extends HTMLElement {
     // A source category has nothing to show until its fetch lands. Say so
     // rather than drawing an empty grid that looks like a broken category.
     if (cat.source && !lijst.length) {
-      return chips + `<div class="leeg">${this._taal().loading}</div>`;
+      const t = this._taal();
+      return chips + `<div class="leeg">${cat.source.entity ? t.noItems : t.loading}</div>`;
     }
-    const tiles = lijst.map((t, i) => {
+    this._feedSig = cat.source && cat.source.entity ? JSON.stringify(lijst) : undefined;
+    const lijstWeergave = this._weergave(cat) === 'list';
+    const items = lijst.map((t, i) => {
       const b = this._tegelBeeld(t);
       const ic = `<div class="ic">${svg(t.icon || (SOORT_VAN(t.uri) === 'radio' ? 'radio' : 'muziek'))}</div>`;
       // An image that will not load (a site that refuses hotlinking, a dead
       // link) falls back to the icon instead of leaving a broken picture.
       const beeld = b
-        ? `<img loading="lazy" src="${esc(GROOT(b))}" onerror="this.outerHTML=this.nextElementSibling.innerHTML"><template>${ic}</template>`
+        ? `<img loading="lazy" src="${esc(lijstWeergave ? KLEIN(b) : GROOT(b))}" onerror="this.outerHTML=this.nextElementSibling.innerHTML"><template>${ic}</template>`
         : ic;
+      if (lijstWeergave) {
+        return `<button class="rij kaart" data-act="tegel" data-i="${i}">${beeld}
+          <div class="tx"><b>${esc(t.name)}</b>${t.subtitle ? `<span>${esc(t.subtitle)}</span>` : ''}</div>
+          ${t.meta ? `<span class="du">${esc(t.meta)}</span>` : '<span></span>'}</button>`;
+      }
       return `<button class="tile" data-act="tegel" data-i="${i}">${beeld}<span>${esc(t.name)}</span></button>`;
     }).join('');
-    return chips + this._scrollbox(`<div class="tiles vlak">${tiles}</div>`);
+    return chips + this._scrollbox(lijstWeergave
+      ? `<div class="lijst vlak">${items}</div>`
+      : `<div class="tiles vlak">${items}</div>`);
   }
 
   // De categorietabs, met de zoekknop als laatste tab rechts.
@@ -2171,7 +2241,8 @@ class MusicAssistantTouchCardEditor extends HTMLElement {
     ];
     cats.forEach((cat, ci) => {
       const binnen = document.createElement('div');
-      const auto = !!cat.source;
+      const feed = !!(cat.source && cat.source.entity);
+      const auto = !!cat.source && !feed;
       // The one question that decides what the rest of this panel looks like:
       // do you write the list, or does Music Assistant.
       binnen.appendChild(this._form(
@@ -2180,25 +2251,75 @@ class MusicAssistantTouchCardEditor extends HTMLElement {
           { name: 'vullen', selector: { select: { mode: 'dropdown', options: [
             { value: 'hand', label: ed.sourceManual },
             { value: 'auto', label: ed.sourceAuto },
+            { value: 'feed', label: ed.sourceFeed },
+          ] } } },
+          { name: 'view', selector: { select: { mode: 'dropdown', options: [
+            { value: '', label: ed.viewDefault },
+            { value: 'tiles', label: ed.viewTiles },
+            { value: 'list', label: ed.viewList },
           ] } } },
         ],
-        { name: cat.name || '', vullen: auto ? 'auto' : 'hand' },
+        { name: cat.name || '', vullen: feed ? 'feed' : (auto ? 'auto' : 'hand'), view: cat.view || '' },
         (v) => {
           const lijst = (this._cfg.categories || []).slice();
           const nw = Object.assign({}, lijst[ci], { name: v.name });
-          const wilAuto = v.vullen === 'auto';
-          if (wilAuto && !nw.source) {
-            nw.source = { media_type: 'playlist', limit: 12, order_by: 'last_played_desc' };
-            delete nw.tiles;
-          } else if (!wilAuto && nw.source) {
-            delete nw.source;
-            nw.tiles = nw.tiles || [];
+          if (v.view) nw.view = v.view; else delete nw.view;
+          const nu = v.vullen || 'hand';
+          const was = feed ? 'feed' : (auto ? 'auto' : 'hand');
+          if (nu !== was) {
+            if (nu === 'auto') {
+              nw.source = { media_type: 'playlist', limit: 12, order_by: 'last_played_desc' };
+              delete nw.tiles;
+            } else if (nu === 'feed') {
+              nw.source = { entity: '', attribute: '' };
+              delete nw.tiles;
+            } else {
+              delete nw.source;
+              nw.tiles = nw.tiles || [];
+            }
           }
           lijst[ci] = nw;
           this._cfg.categories = lijst;
-          if (wilAuto !== auto) this._herbouw(); else this._melden();
+          if (nu !== was) this._herbouw(); else this._melden();
         }
       ));
+      if (feed) {
+        const br = cat.source;
+        binnen.appendChild(this._form(
+          [
+            { name: 'feed_entity', selector: { entity: {} } },
+            { name: 'attribute', selector: { text: {} } },
+            { name: '', type: 'grid', schema: [
+              { name: 'name_key', selector: { text: {} } },
+              { name: 'subtitle_key', selector: { text: {} } },
+              { name: 'meta_key', selector: { text: {} } },
+              { name: 'uri_key', selector: { text: {} } },
+            ] },
+            { name: '', type: 'grid', schema: [
+              { name: 'count', selector: { number: { min: 1, max: 100, step: 1, mode: 'box' } } },
+              { name: 'play', selector: { boolean: {} } },
+            ] },
+          ],
+          {
+            feed_entity: br.entity || '', attribute: br.attribute || '',
+            name_key: br.name_key || '', subtitle_key: br.subtitle_key || '',
+            meta_key: br.meta_key || '', uri_key: br.uri_key || '',
+            count: br.limit == null ? 20 : br.limit, play: br.play !== false,
+          },
+          (v) => {
+            const bron = { entity: v.feed_entity || '' };
+            ['attribute', 'name_key', 'subtitle_key', 'meta_key', 'uri_key'].forEach((k) => {
+              if (v[k]) bron[k] = v[k];
+            });
+            if (v.count) bron.limit = v.count;
+            if (v.play === false) bron.play = false;
+            const lijst = (this._cfg.categories || []).slice();
+            lijst[ci] = Object.assign({}, lijst[ci], { source: Object.assign({}, br, bron) });
+            this._cfg.categories = lijst;
+            this._melden();
+          }
+        ));
+      }
       if (auto) {
         const br = cat.source || {};
         binnen.appendChild(this._form(
@@ -2241,7 +2362,7 @@ class MusicAssistantTouchCardEditor extends HTMLElement {
       }
       const tegels = document.createElement('div');
       tegels.className = 'tegels';
-      (auto ? [] : cat.tiles || []).forEach((tg, ti) => {
+      ((auto || feed) ? [] : cat.tiles || []).forEach((tg, ti) => {
         const rij = document.createElement('div');
         rij.className = 'tegel';
         rij.appendChild(this._form(tSchema, {
@@ -2268,13 +2389,13 @@ class MusicAssistantTouchCardEditor extends HTMLElement {
         tegels.appendChild(rij);
       });
       binnen.appendChild(tegels);
-      if (!auto) {
+      if (!auto && !feed) {
         binnen.appendChild(this._knop(ed.addTile, '', () => {
           this._cfg.categories[ci].tiles = (cat.tiles || []).concat([{ name: '', uri: '' }]);
           this._herbouw();
         }));
       }
-      const kop = (cat.name || ed.unnamed) + '  ·  ' + (auto
+      const kop = (cat.name || ed.unnamed) + '  ·  ' + (feed ? ed.feedTiles : auto
         ? ed.autoTiles
         : ((cat.tiles || []).length) + ' ' + ed.tiles.toLowerCase());
       cVak.appendChild(this._paneel(kop, binnen, () => {

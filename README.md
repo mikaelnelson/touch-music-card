@@ -224,6 +224,7 @@ Prefer `library://` ids where you can. Those are Music Assistant's own library n
 | `show_volume` | `true` | Set to `false` to hide the volume control, for example when the volume lives on an amplifier or a remote. |
 | `limit` | `24` | Search results per type. |
 | `search_types` | all four | Which of track, album, artist, playlist can be searched. |
+| `view` | `tiles` | How categories are shown by default: `tiles` or `list`. A category's own `view` wins. |
 | `tile_action` | `open` | `open` shows a tile's tracks, `play` starts it straight away. |
 | `keyboard` | `true` | The on-screen keyboard. Set `false` on a phone or PC to use a normal text field. |
 | `keyboard_layout` | `qwerty` | Letter layout of the on-screen keyboard: `qwerty`, `azerty`, `nb` (Norwegian, with Æ Ø Å) or `abc` (alphabetical). |
@@ -294,7 +295,8 @@ If Music Assistant can also reach the speaker with one of its own providers (Chr
 | --- | --- | --- |
 | `name` | — | The heading above the tiles. |
 | `tiles` | — | The tiles in this category, written by you. |
-| `source` | — | Let Music Assistant fill it instead. Replaces `tiles`. |
+| `source` | — | Let Music Assistant, or an entity's attribute, fill it instead. Replaces `tiles`. |
+| `view` | card's `view` | `tiles` (cover grid) or `list` (one row per item: image or icon, title, optional second line, optional note on the right). Works for hand-written, Music Assistant and entity categories alike. |
 
 ### Source
 
@@ -305,6 +307,37 @@ If Music Assistant can also reach the speaker with one of its own providers (Chr
 | `order_by` | library order | `last_played_desc`, `timestamp_added_desc` or `random`. |
 | `favorite` | `false` | Only what is marked as a favourite in Music Assistant. |
 | `play` | `false` | Tapping a tile plays it straight away instead of opening it. |
+
+### Source from an entity
+
+Instead of `media_type`, a source can name an entity whose attribute holds a list of items. Nothing is fetched, so a token or URL never appears in the card; the list is whatever Home Assistant already knows, and the card redraws when it changes.
+
+```yaml
+categories:
+  - name: Latest episodes
+    view: list
+    source:
+      entity: sensor.podcast_recent_episodes
+      attribute: episodes
+      name_key: title
+      subtitle_key: show
+      meta_key: published
+      uri_key: uri
+      limit: 20
+```
+
+| Key | Default | What it does |
+| --- | --- | --- |
+| `entity` | — | Required. Any entity with a list attribute. |
+| `attribute` | `items` | The attribute that holds the list. |
+| `name_key` | `name` | Field used as the title. |
+| `subtitle_key` | `subtitle` | Field for the second line (list view). |
+| `meta_key` | `meta` | Field shown on the right (list view), such as a date. |
+| `uri_key` | `uri` | Field with the Music Assistant media id. Items without one are skipped. |
+| `image_key` | `image` | Field with a cover image URL (optional). |
+| `icon` | music note | Icon shown when an item has no image. |
+| `limit` | all | Maximum number of items. |
+| `play` | `true` | Tapping an item plays it straight away. Set `false` to open it instead. |
 
 ### Tile
 
